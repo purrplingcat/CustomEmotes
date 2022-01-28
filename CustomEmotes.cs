@@ -24,20 +24,26 @@ namespace CustomEmotes
 
         public void Edit<T>(IAssetData asset)
         {
-            var emoteMap = new Dictionary<string, Texture2D>();
+            var emotes = this.LoadEmotes().ToList();
             var original = this._vanillaContent.Load<Texture2D>("TileSheets\\emotes");
             var image = asset.AsImage();
             int startIndex = (original.Width / 16) * (original.Height / 16);
 
             this._emoteIndexMap.Clear();
-            this.LoadEmotes(emoteMap);
-            image.ExtendImage(0, original.Height + emoteMap.Count * 16);
+            
+            image.ExtendImage(0, original.Height + emotes.Count * 16);
 
             int cursor = 0;
-            foreach (var emote in emoteMap)
+            foreach (var emote in emotes)
             {
-                image.PatchImage(emote.Value, null, new Rectangle(0, original.Height + cursor * 16, original.Width, 16));
-                this._emoteIndexMap[emote.Key] = startIndex + cursor;
+                if (emote.index * 16 > emote.texture.Height)
+                {
+                    this.Monitor.Log($"Emote '{emote.name}' is out of image bounds", LogLevel.Error);
+                    continue;
+                }
+
+                image.PatchImage(emote.texture, new Rectangle(0, emote.index * 16, original.Width, 16), new Rectangle(0, original.Height + cursor * 16, original.Width, 16));
+                this._emoteIndexMap[emote.name] = startIndex + cursor * (original.Width / 16);
                 ++cursor;
             }
 
@@ -52,7 +58,7 @@ namespace CustomEmotes
             this.Monitor.Log($"Injected {this._emoteIndexMap.Count} new custom emotes");
         }
 
-        private void LoadEmotes(Dictionary<string, Texture2D> emoteMap)
+        private IEnumerable<Emote> LoadEmotes()
         {
             foreach (var pack in this.Helper.ContentPacks.GetOwned())
             {
@@ -62,10 +68,21 @@ namespace CustomEmotes
                     continue;
                 }
 
-                emoteMap.AddRange(
-                    pack.ReadJsonFile<Dictionary<string, string>>("emotes.json")
-                        .ToDictionary(d => d.Key, d => pack.LoadAsset<Texture2D>(d.Value))
-                );
+                foreach (var definition in pack.ReadJsonFile<EmoteDefinition[]>("emotes.json"))
+                {
+                    if (!pack.HasFile(definition.Image))
+                    {
+                        this.Monitor.Log($"Missing image '{definition.Image}' in custom emotes pack {pack.Manifest.UniqueID}", LogLevel.Error);
+                        continue;
+                    }
+
+                    var texture = pack.LoadAsset<Texture2D>(definition.Image);
+
+                    foreach (var pair in definition.Map)
+                    {
+                        yield return new Emote(pair.Value, texture, pair.Key);
+                    }
+                }
             }
         }
 
@@ -75,6 +92,8 @@ namespace CustomEmotes
         {
             Instance = this;
             helper.Content.AssetEditors.Add(this);
+            //helper.Events.Display.Rendered += this.Display_Rendered;
+            //helper.Events.Input.ButtonPressed += this.Input_ButtonPressed;
 
             var harmony = new Harmony(this.ModManifest.UniqueID);
 
@@ -82,6 +101,22 @@ namespace CustomEmotes
                 original: AccessTools.Method(typeof(Event), nameof(Event.command_emote)),
                 prefix: new HarmonyMethod(this.GetType(), nameof(PATCH_prefix_command_emote))
             );
+        }
+
+        private void Input_ButtonPressed(object sender, StardewModdingAPI.Events.ButtonPressedEventArgs e)
+        {
+            if (Context.IsWorldReady && e.Button == SButton.F2)
+            {
+                ICustomEmotesApi api = (ICustomEmotesApi)this.GetApi();
+
+                api.DoEmote(Game1.player, "confused");
+                api.DoEmote("Abigail", "check_ok");
+            }
+        }
+
+        private void Display_Rendered(object sender, StardewModdingAPI.Events.RenderedEventArgs e)
+        {
+            e.SpriteBatch.Draw(Game1.emoteSpriteSheet, Vector2.Zero, Color.White);
         }
 
         public override object GetApi()

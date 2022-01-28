@@ -1,8 +1,8 @@
 ﻿{
   "Name": "Custom Emotes",
   "Author": "PurrplingCat",
-  "Version": "1.0.0",
-  "Description": "A framework to add custom dialogue emotes",
+  "Version": "1.0.0-beta",
+  "Description": "Add custom emotes reflectable above head as bubble",
   "UniqueID": "PurrplingCat.CustomEmotes",
   "EntryDll": "CustomEmotes.dll",
   "MinimumApiVersion": "3.13.0",

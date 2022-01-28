@@ -1,10 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <AssemblyName>CustomEmotes</AssemblyName>
     <RootNamespace>CustomEmotes</RootNamespace>
     <ProductName>CustomEmotes</ProductName>
-    <Version>1.0.0</Version>
+    <Version>1.0.0-beta</Version>
     <TargetFramework>net5.0</TargetFramework>
     <EnableHarmony>true</EnableHarmony>
     <Configurations>Debug;Release</Configurations>
