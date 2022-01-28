@@ -1,0 +1,10 @@
+﻿{
+  "Name": "Custom Emotes",
+  "Author": "PurrplingCat",
+  "Version": "1.0.0",
+  "Description": "A framework to add custom dialogue emotes",
+  "UniqueID": "PurrplingCat.CustomEmotes",
+  "EntryDll": "CustomEmotes.dll",
+  "MinimumApiVersion": "3.13.0",
+  "UpdateKeys": [ "Nexus:????" ]
+}
