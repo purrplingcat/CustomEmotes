@@ -4,12 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CustomEmotes
 {
     internal static class HarmonyPatches
     {
+        private static readonly string EMOTE_PATTERN = @"\%emote_(?<emoteName>[A-z0-9]+)";
         private static CustomEmotes Instance => CustomEmotes.Instance;
 
         public static bool Prefix_command_emote(Event __instance, GameLocation location, GameTime time, ref string[] split)
@@ -30,6 +32,23 @@ namespace CustomEmotes
             }
 
             return true;
+        }
+
+        public static void Prefix_getCurrentDialogue(Dialogue __instance, ref string __result)
+        {
+            if (__instance.dialogues[__instance.currentDialogueIndex].Contains("%emote_"))
+            {
+                var api = Instance.GetApi();
+                var m = Regex.Match(__instance.dialogues[__instance.currentDialogueIndex], EMOTE_PATTERN);
+
+                if (!m.Success) return;
+
+                string emoteName = m.Groups["emoteName"].Value;
+                DelayedAction.functionAfterDelay(() => api.DoEmote(__instance.speaker, emoteName), 10);
+
+                __result = __instance.dialogues[__instance.currentDialogueIndex] 
+                    = Regex.Replace(__instance.dialogues[__instance.currentDialogueIndex], EMOTE_PATTERN, "");
+            }
         }
     }
 }

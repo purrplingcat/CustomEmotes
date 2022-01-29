@@ -1,9 +1,9 @@
-﻿using HarmonyLib;
+﻿using CustomEmotes.Model;
+using HarmonyLib;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewValley;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,6 +13,7 @@ namespace CustomEmotes
     public class CustomEmotes : Mod, IAssetEditor
     {
         private readonly LocalizedContentManager _vanillaContent = new(Game1.game1.Content.ServiceProvider, Game1.game1.Content.RootDirectory);
+        private ICustomEmotesApi _api;
 
         internal Dictionary<string, int> EmoteIndexMap { get; } = new();
 
@@ -59,6 +60,10 @@ namespace CustomEmotes
             this.Monitor.Log($"Injected {this.EmoteIndexMap.Count} new custom emotes");
         }
 
+        /// <summary>
+        /// Loads emotes and their textures
+        /// </summary>
+        /// <returns></returns>
         private IEnumerable<Emote> LoadEmotes()
         {
             foreach (var pack in this.Helper.ContentPacks.GetOwned())
@@ -87,6 +92,7 @@ namespace CustomEmotes
                         continue;
                     }
 
+                    var assetKey = pack.GetActualAssetKey(definition.Image);
                     var texture = pack.LoadAsset<Texture2D>(definition.Image);
 
                     foreach (var pair in definition.Map)
@@ -103,8 +109,6 @@ namespace CustomEmotes
         {
             Instance = this;
             helper.Content.AssetEditors.Add(this);
-            helper.Events.Display.Rendered += this.Display_Rendered;
-            helper.Events.Input.ButtonPressed += this.Input_ButtonPressed;
 
             var harmony = new Harmony(this.ModManifest.UniqueID);
 
@@ -112,27 +116,24 @@ namespace CustomEmotes
                 original: AccessTools.Method(typeof(Event), nameof(Event.command_emote)),
                 prefix: new HarmonyMethod(typeof(HarmonyPatches), nameof(HarmonyPatches.Prefix_command_emote))
             );
+            harmony.Patch(
+                original: AccessTools.Method(typeof(Dialogue), nameof(Dialogue.getCurrentDialogue)),
+                prefix: new HarmonyMethod(typeof(HarmonyPatches), nameof(HarmonyPatches.Prefix_getCurrentDialogue))
+            );
         }
 
-        private void Input_ButtonPressed(object sender, StardewModdingAPI.Events.ButtonPressedEventArgs e)
+        /// <summary>
+        /// Provides a mod API for other SMAPI mods
+        /// </summary>
+        /// <returns></returns>
+        public override ICustomEmotesApi GetApi()
         {
-            if (Context.IsWorldReady && e.Button == SButton.F2)
+            if (this._api == null)
             {
-                ICustomEmotesApi api = (ICustomEmotesApi)this.GetApi();
-
-                api.DoEmote(Game1.player, "confused");
-                api.DoEmote("Abigail", "check_ok");
+                this._api = new CustomEmotesApi(this);
             }
-        }
 
-        private void Display_Rendered(object sender, StardewModdingAPI.Events.RenderedEventArgs e)
-        {
-            e.SpriteBatch.Draw(Game1.emoteSpriteSheet, Vector2.Zero, Color.White);
-        }
-
-        public override object GetApi()
-        {
-            return new CustomEmotesApi(this);
+            return this._api;
         }
     }
 }
