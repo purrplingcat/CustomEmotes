@@ -7,5 +7,7 @@ namespace CustomEmotes
     {
         public string Image { get; set; }
         public Dictionary<int, string> Map { get; set; }
+        public string EnableWithMod { get; set; }
+        public string DisableWithMod { get; set; }
     }
 }

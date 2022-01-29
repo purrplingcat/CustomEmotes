@@ -8,12 +8,16 @@ namespace CustomEmotes
 {
     static class Extensions
     {
-        public static void AddRange<TKey, TValue>(this Dictionary<TKey, TValue> target, Dictionary<TKey, TValue> source)
+        public static IEnumerable<TSource> Deduplicate<TSource>(this IEnumerable<TSource> source, Func<TSource, object> keySelector)
         {
-            foreach (var pair in source)
+            var dict = new Dictionary<object, TSource>();
+
+            foreach (var item in source)
             {
-                target[pair.Key] = pair.Value;
+                dict[keySelector(item)] = item;
             }
+
+            return dict.Values;
         }
     }
 }

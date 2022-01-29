@@ -13,9 +13,21 @@ namespace CustomEmotes
             this._mod = mod;
         }
 
+        private int GetEmoteIndex(string emoteName)
+        {
+            if (this._mod.EmoteIndexMap.TryGetValue(emoteName, out int index))
+            {
+                return index;
+            }
+
+            this._mod.Monitor.Log($"Unknown emote '{emoteName}' ");
+
+            return -1;
+        }
+
         public void DoEmote(Character character, string emoteName)
         {
-            int index = this._mod.GetEmoteIndex(emoteName);
+            int index = this.GetEmoteIndex(emoteName);
 
             if (Context.IsWorldReady && index > 0 && character != null)
             {

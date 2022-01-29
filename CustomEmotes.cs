@@ -12,8 +12,9 @@ namespace CustomEmotes
     /// <summary>The mod entry point.</summary>
     public class CustomEmotes : Mod, IAssetEditor
     {
-        private readonly Dictionary<string, int> _emoteIndexMap = new();
         private readonly LocalizedContentManager _vanillaContent = new(Game1.game1.Content.ServiceProvider, Game1.game1.Content.RootDirectory);
+
+        internal Dictionary<string, int> EmoteIndexMap { get; } = new();
 
         internal static CustomEmotes Instance { get; private set; }
 
@@ -24,12 +25,12 @@ namespace CustomEmotes
 
         public void Edit<T>(IAssetData asset)
         {
-            var emotes = this.LoadEmotes().ToList();
+            var emotes = this.LoadEmotes().Deduplicate(e => e.name).ToList();
             var original = this._vanillaContent.Load<Texture2D>("TileSheets\\emotes");
             var image = asset.AsImage();
             int startIndex = (original.Width / 16) * (original.Height / 16);
 
-            this._emoteIndexMap.Clear();
+            this.EmoteIndexMap.Clear();
             
             image.ExtendImage(0, original.Height + emotes.Count * 16);
 
@@ -43,7 +44,7 @@ namespace CustomEmotes
                 }
 
                 image.PatchImage(emote.texture, new Rectangle(0, emote.index * 16, original.Width, 16), new Rectangle(0, original.Height + cursor * 16, original.Width, 16));
-                this._emoteIndexMap[emote.name] = startIndex + cursor * (original.Width / 16);
+                this.EmoteIndexMap[emote.name] = startIndex + cursor * (original.Width / 16);
                 ++cursor;
             }
 
@@ -52,10 +53,10 @@ namespace CustomEmotes
             foreach (var emote in Farmer.EMOTES)
             {
                 if (emote.emoteIconIndex > 0)
-                    this._emoteIndexMap[emote.emoteString] = emote.emoteIconIndex;
+                    this.EmoteIndexMap[emote.emoteString] = emote.emoteIconIndex;
             }
 
-            this.Monitor.Log($"Injected {this._emoteIndexMap.Count} new custom emotes");
+            this.Monitor.Log($"Injected {this.EmoteIndexMap.Count} new custom emotes");
         }
 
         private IEnumerable<Emote> LoadEmotes()
@@ -76,6 +77,16 @@ namespace CustomEmotes
                         continue;
                     }
 
+                    if (!string.IsNullOrWhiteSpace(definition.EnableWithMod) && !this.Helper.ModRegistry.IsLoaded(definition.EnableWithMod))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(definition.DisableWithMod) && this.Helper.ModRegistry.IsLoaded(definition.DisableWithMod))
+                    {
+                        continue;
+                    }
+
                     var texture = pack.LoadAsset<Texture2D>(definition.Image);
 
                     foreach (var pair in definition.Map)
@@ -92,14 +103,14 @@ namespace CustomEmotes
         {
             Instance = this;
             helper.Content.AssetEditors.Add(this);
-            //helper.Events.Display.Rendered += this.Display_Rendered;
-            //helper.Events.Input.ButtonPressed += this.Input_ButtonPressed;
+            helper.Events.Display.Rendered += this.Display_Rendered;
+            helper.Events.Input.ButtonPressed += this.Input_ButtonPressed;
 
             var harmony = new Harmony(this.ModManifest.UniqueID);
 
             harmony.Patch(
                 original: AccessTools.Method(typeof(Event), nameof(Event.command_emote)),
-                prefix: new HarmonyMethod(this.GetType(), nameof(PATCH_prefix_command_emote))
+                prefix: new HarmonyMethod(typeof(HarmonyPatches), nameof(HarmonyPatches.Prefix_command_emote))
             );
         }
 
@@ -123,39 +134,5 @@ namespace CustomEmotes
         {
             return new CustomEmotesApi(this);
         }
-
-        private static bool PATCH_prefix_command_emote(Event __instance, GameLocation location, GameTime time, ref string[] split)
-        {
-            if (split.Length > 2 && !int.TryParse(split[2], out var _))
-            {
-                if (Instance._emoteIndexMap.TryGetValue(split[2], out int index))
-                {
-                    split[2] = index.ToString();
-                    return true;
-                }
-
-                Instance.Monitor.Log($"Unknown emote '{split[2]}' ");
-                __instance.CurrentCommand++;
-                __instance.checkForNextCommand(location, time);
-
-                return false;
-            }
-
-            return true;
-        }
-
-        internal int GetEmoteIndex(string emoteName)
-        {
-            if (this._emoteIndexMap.TryGetValue(emoteName, out int index))
-            {
-                return index;
-            }
-
-            this.Monitor.Log($"Unknown emote '{emoteName}' ");
-
-            return -1;
-        }
-
-        internal Dictionary<string, int> EmoteIndexMap => this._emoteIndexMap;
     }
 }
